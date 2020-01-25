@@ -6,23 +6,15 @@ import imutils
 import time
 import cv2
 
-CONFIDENCE = 0.7
-
 # initialize the list of class labels MobileNet SSD was trained to
 # detect, then generate a set of bounding box colors for each class
 CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-	"bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-	"dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-	"sofa", "train", "tvmonitor"]
+           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+           "sofa", "train", "tvmonitor"]
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
 
-# load our serialized model from disk
-print("[INFO] loading model...")
-net = cv2.dnn.readNetFromCaffe(args["prototxt"], args["model"])
-
-# initialize the queues and detections
-inputQ = Queue(maxsize=1)
-outputQ = Queue(maxsize=1)
+CONFIDENCE = 0.7
 
 
 # Passes the input frame and extracts detections
@@ -43,7 +35,7 @@ def get_detections(network, inputQ, outputQ):
 
 # Start a process which continuously runs get_detections
 def start_background_detections(network, inputQ, outputQ):
-    p = Process(target = get_detections, args=(network, inputQ, outputQ,))
+    p = Process(target=get_detections, args=(network, inputQ, outputQ,))
     p.daemon = True
     p.start()
 
@@ -64,10 +56,10 @@ def read_frame(vs):
 
 
 # Modifies input and output Queues
-def check_queues(frame, inputQ, outputQ):
+def check_queues(frame, detections, inputQ, outputQ):
     if inputQ.empty():
         inputQ.put(frame)
-    
+
     if not outputQ.empty():
         detections = outputQ.get()
 
@@ -106,5 +98,5 @@ def draw_frames(idx, frame, startX, startY, endX, endY):
     cv2.rectangle(frame, (startX, startY), (endX, endY),
                   COLORS[idx], 2)
     y = startY - 15 if startY - 15 > 15 else startY + 15
-    cv2.outText(frame, label, (startX, y),
+    cv2.putText(frame, label, (startX, y),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
