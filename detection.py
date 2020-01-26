@@ -8,10 +8,15 @@ import cv2
 
 # initialize the list of class labels MobileNet SSD was trained to
 # detect, then generate a set of bounding box colors for each class
-CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-           "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-           "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-           "sofa", "train", "tvmonitor"]
+# CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
+#            "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
+#            "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
+#            "sofa", "train", "tvmonitor"]
+# COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
+
+# load the class labels from disk
+rows = open("synset_words.txt").read().strip().split("\n")
+CLASSES = [r[r.find(" ") + 1:].split(",")[0] for r in rows]
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
 
 CONFIDENCE = 0.7
@@ -22,8 +27,8 @@ def get_detections(network, inputQ, outputQ):
     while True:
         if not inputQ.empty():
             frame = inputQ.get()
-            frame = cv2.resize(frame, (300, 300))
-            blob = cv2.dnn.blobFromImage(frame, 0.007843, (300, 300), 127.5)
+            frame = cv2.resize(frame, (224, 224))
+            blob = cv2.dnn.blobFromImage(frame, 1, (224, 224), 127.5)
 
             # input blob to neural net
             network.setInput(blob)
@@ -68,17 +73,15 @@ def check_queues(frame, detections, inputQ, outputQ):
 
 # check to see if there are detections in the frame
 def check_detections(frame, detections, frHeight, frWidth):
-    # loop over detections
-    for i in np.arange(0, detections.shape[2]):
-        # Get the confidence value from the detection list
-        conf = detections[0, 0, i, 2]
-
-        if conf < CONFIDENCE:
-            continue
-
-        idx, startX, startY, endX, endY = extract_classes(
-            detections, i, frWidth, frHeight)
-        draw_frames(idx, frame, startX, startY, endX, endY)
+    # Gets highest confidence level detection and displays it on the frame
+    idx = np.argsort(detections[0])[::-1][0]
+    itemstr = CLASSES[idx]
+    text = "Label: {}, {:.2f}%".format(itemstr,
+	    detections[0][idx] * 100)
+    cv2.putText(frame, text, (5, 25),  cv2.FONT_HERSHEY_SIMPLEX,
+	    0.7, (0, 0, 255), 2)
+    
+    return itemstr
 
 
 # Extract the index of the class label from the detections and compute x, y
