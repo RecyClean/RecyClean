@@ -13,8 +13,6 @@ ap.add_argument("-p", "--prototxt", required=True,
                 help="path to Caffe 'deploy' prototxt file")
 ap.add_argument("-m", "--model", required=True,
                 help="path to Caffe pre-trained model")
-ap.add_argument("-c", "--confidence", type=float, default=0.2,
-                help="minimum probability to filter weak detections")
 args = vars(ap.parse_args())
 
 # load our serialized model from disk
@@ -26,9 +24,13 @@ inputQ = Queue(maxsize=1)
 outputQ = Queue(maxsize=1)
 detections = None
 
+plastic_state = 0
+other_state = 0
+
 
 '''PROGRAM'''
 dt.start_background_detections(network, inputQ, outputQ)
+#dt.start_background_leds(plastic_state, other_state)
 
 vs = dt.start_video_stream()
 
@@ -41,7 +43,8 @@ while True:
     # TODO
     # If detection is in the category
     if detections is not None:
-        dt.check_detections(frame, detections, frHeight, frWidth)
+        detection_dict = dt.check_detections(frame, detections, frHeight, frWidth)
+        
 
     cv2.imshow("Frame", frame)
     key = cv2.waitKey(1) & 0xFF

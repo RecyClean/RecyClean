@@ -5,21 +5,34 @@ import numpy as np
 import imutils
 import time
 import cv2
+from led import turn_on, turn_off
+import datetime as dt
 
-# initialize the list of class labels MobileNet SSD was trained to
-# detect, then generate a set of bounding box colors for each class
-# CLASSES = ["background", "aeroplane", "bicycle", "bird", "boat",
-#            "bottle", "bus", "car", "cat", "chair", "cow", "diningtable",
-#            "dog", "horse", "motorbike", "person", "pottedplant", "sheep",
-#            "sofa", "train", "tvmonitor"]
-# COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
-
+START_TIME = dt.datetime.now()
 # load the class labels from disk
 rows = open("synset_words.txt").read().strip().split("\n")
 CLASSES = [r[r.find(" ") + 1:].split(",")[0] for r in rows]
 COLORS = np.random.uniform(0, 255, size=(len(CLASSES), 3))
-
 CONFIDENCE = 0.7
+
+# Categories of paper, plastic, and other
+CATEGORIES = {
+    "water bottle": "plastic",
+    "water jug": "plastic",
+    "plastic bag": "plastic",
+    "envelope": "paper",
+    "notebook": "paper",
+    "book jacket": "paper",
+    "toilet tissue": "paper",
+    "packet": "plastic",
+    "mouse": "trash",
+    "beaker": "plastic",
+    "tvmonitor": "trash",
+    "cellular telephone": "trash",
+    "cellular phone": "trash",
+    "cellphone": "trash",
+    "mobile phone": "trash",
+}
 
 
 # Passes the input frame and extracts detections
@@ -28,7 +41,7 @@ def get_detections(network, inputQ, outputQ):
         if not inputQ.empty():
             frame = inputQ.get()
             frame = cv2.resize(frame, (224, 224))
-            blob = cv2.dnn.blobFromImage(frame, 1, (224, 224), 127.5)
+            blob = cv2.dnn.blobFromImage(frame, 1, (224, 224), (104, 117, 123))
 
             # input blob to neural net
             network.setInput(blob)
@@ -43,6 +56,23 @@ def start_background_detections(network, inputQ, outputQ):
     p = Process(target=get_detections, args=(network, inputQ, outputQ,))
     p.daemon = True
     p.start()
+    
+    
+# def get_led_states(plastic_state, other_state):
+#     while True:
+#         if plastic_state:
+#             turn_on("plastic")
+#             plastic_state = 0
+#         elif other_state:
+#             turn_on("other")
+#             other_state = 0
+#             
+# 
+# # Start a process which continuously runs get_detections
+# def start_background_leds(plastic_state, other_state):
+#     p = Process(target=get_led_states, args=(plastic_state, other_state))
+#     p.daemon = False
+#     p.start()
 
 
 # Start the Picamera video stream
@@ -71,17 +101,35 @@ def check_queues(frame, detections, inputQ, outputQ):
     return detections, inputQ, outputQ
 
 
+def ledCheck(itemstr):
+    if itemstr in CATEGORIES:
+        plastic_state = 1
+        turn_on(itemstr)
+    else:
+        other_state = 1
+        turn_on(itemstr)
+
 # check to see if there are detections in the frame
 def check_detections(frame, detections, frHeight, frWidth):
     # Gets highest confidence level detection and displays it on the frame
-    idx = np.argsort(detections[0])[::-1][0]
-    itemstr = CLASSES[idx]
-    text = "Label: {}, {:.2f}%".format(itemstr,
-	    detections[0][idx] * 100)
-    cv2.putText(frame, text, (5, 25),  cv2.FONT_HERSHEY_SIMPLEX,
-	    0.7, (0, 0, 255), 2)
-    
-    return itemstr
+    idx = np.argsort(detections[0])[::-1][:5]
+    turn_off()
+
+    for(i, idx) in enumerate(idx):
+        
+        itemstr = CLASSES[idx]
+        #ledCheck(itemstr)
+        if (detections[0][idx] > 0.150101):
+                if itemstr in CATEGORIES:
+                    turn_on(CATEGORIES[itemstr])
+                    text = "Label: {}, {:.2f}%".format(itemstr,
+                        detections[0][idx] * 100)
+                    cv2.putText(frame, text, (5, 25),  cv2.FONT_HERSHEY_SIMPLEX,
+                        0.7, (0, 0, 255), 2)
+                    break
+       
+        #print("[INFO] {}. label: {}, probability: {:.5}".format(i+1, CLASSES[idx], detections[0][idx]),)
+    return idx, itemstr
 
 
 # Extract the index of the class label from the detections and compute x, y
@@ -103,3 +151,7 @@ def draw_frames(idx, frame, startX, startY, endX, endY):
     y = startY - 15 if startY - 15 > 15 else startY + 15
     cv2.putText(frame, label, (startX, y),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLORS[idx], 2)
+
+
+def determine_category():
+    pass
